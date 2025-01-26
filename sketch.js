@@ -6,70 +6,67 @@ let invertCheck; // For global invert
 let orbitDisabled = false;
 let canvas;
 
+// We'll also create a label for the export key, e.g., "[E] Export"
+let exportLabel;
+
 function setup() {
+  // CREATE CANVAS
   canvas = createCanvas(windowWidth, windowHeight, WEBGL);
   angleMode(DEGREES);
   textFont('sans-serif');
 
-  // Position the canvas behind all HTML elements
+  // Position the canvas behind the UI
   canvas.style('position', 'absolute');
   canvas.style('top', '0px');
   canvas.style('left', '0px');
-  // Put the canvas behind the UI
   canvas.style('z-index', '-1');
 
-  // 1. Recursion Depth
+  // BUILD UI
   depthSlider = createSlider(0, 200, 60, 1);
   placeUI('Recursion Depth', depthSlider, 20, 20);
 
-  // 2. Base Offset (deg)
   offsetSlider = createSlider(0, 45, 10, 1);
   placeUI('Base Offset (deg)', offsetSlider, 20, 60);
 
-  // 3. Perlin Noise Factor
   noiseSlider = createSlider(0, 0.05, 0.01, 0.001);
   placeUI('Noise Factor', noiseSlider, 20, 100);
 
-  // 4. Negative Space
   eraseSlider = createSlider(0, 1, 0.2, 0.01);
   placeUI('Negative Space', eraseSlider, 20, 140);
 
-  // 5. Curve Global
   curveGlobalSlider = createSlider(0, 1, 0.0, 0.01);
   placeUI('Curve Global', curveGlobalSlider, 20, 180);
 
-  // 6. Curve Invert
   curveInvertSlider = createSlider(-1, 1, 1, 0.01);
   placeUI('Curve Invert', curveInvertSlider, 20, 220);
 
-  // 7. Curve Local
   curveLocalSlider = createSlider(0, 1, 0, 0.01);
   placeUI('Curve Local', curveLocalSlider, 20, 260);
 
-  // 8. X Factor
   xFactorSlider = createSlider(0, 2, 1, 0.01);
   placeUI('X Factor', xFactorSlider, 20, 300);
 
-  // 9. Y Factor
   yFactorSlider = createSlider(0, 2, 1, 0.01);
   placeUI('Y Factor', yFactorSlider, 20, 340);
 
-  // 10. Mode Radio (SWAPPED)
   modeRadio = createRadio();
   modeRadio.option('Mode 1');
   modeRadio.option('Mode 2');
   modeRadio.selected('Mode 1');
   placeRadio('Mode Select', modeRadio, 20, 380);
 
-  // 11. Global Invert
   invertCheck = createCheckbox(' Global Invert', false);
   invertCheck.position(20, 420);
 
-  // Group all controls to disable orbit on hover
+  // ADD A LABEL FOR [E] EXPORT
+  exportLabel = createSpan('[E] Export');
+  exportLabel.position(20, 460);
+
+  // DISABLE ORBIT ON HOVER
   const uiElements = [
     depthSlider, offsetSlider, noiseSlider, eraseSlider,
     curveGlobalSlider, curveInvertSlider, curveLocalSlider,
-    xFactorSlider, yFactorSlider, modeRadio, invertCheck
+    xFactorSlider, yFactorSlider, modeRadio, invertCheck, exportLabel
   ];
   uiElements.forEach((elt) => {
     elt.mouseOver(() => orbitDisabled = true);
@@ -80,23 +77,17 @@ function setup() {
 function draw() {
   let invertOn = invertCheck.checked();
 
-  // -- Invert the entire HTML document, including UI --
+  // Invert entire doc background + text
   if (invertOn) {
     document.body.style.backgroundColor = '#000';
     document.body.style.color = '#fff';
+    background(0);
   } else {
     document.body.style.backgroundColor = '#fff';
     document.body.style.color = '#000';
-  }
-
-  // For the canvas background
-  if (invertOn) {
-    background(0);
-  } else {
     background(255);
   }
 
-  // Only orbit if mouse not over UI
   if (!orbitDisabled) {
     orbitControl();
   }
@@ -137,17 +128,25 @@ function draw() {
 }
 
 /**
- * Helper: place label + slider at (x,y).
+ * Press 'e' to export the canvas
+ */
+function keyPressed() {
+  if (key === 'e' || key === 'E') {
+    saveCanvas(canvas, 'myFractal', 'png');
+  }
+}
+
+/**
+ * placeUI(): Create a label + slider
  */
 function placeUI(labelText, slider, x, y) {
   let label = createSpan(labelText);
-  // The label text color will flip if invertOn is set, because we flip body color globally
   label.position(x, y - 20);
   slider.position(x, y);
 }
 
 /**
- * Helper: place label + radio at (x,y).
+ * placeRadio(): Create a label + radio
  */
 function placeRadio(labelText, radio, x, y) {
   let label = createSpan(labelText);
@@ -157,7 +156,7 @@ function placeRadio(labelText, radio, x, y) {
 
 /**
  * Recursively draws squares with partial edges (fade-based negative space),
- * plus advanced curve transformations, X/Y factors, and global invert.
+ * plus advanced curve transformations, X/Y factors, and invert mode.
  */
 function drawRecursiveSquare(
   shapeSize,
@@ -177,10 +176,10 @@ function drawRecursiveSquare(
   let n = noise(level * 10 * noiseFactor);
   let noiseRotation = map(n, 0, 1, -15, 15);
 
-  // Rotate Z each recursion
+  // Rotate around Z axis each recursion
   rotateZ(baseOffset + level + noiseRotation);
 
-  // SWAPPED modes:
+  // SWAPPED:
   // Mode 1 => tilt/rotate
   // Mode 2 => scale
   if (currentMode === 'Mode 1') {
@@ -229,7 +228,7 @@ function drawRecursiveSquare(
 }
 
 /**
- * Draws a 'square' with four bezier edges, fading line segments for negative space.
+ * Draw a 'square' with four bezier edges, fade line segments for negative space.
  */
 function drawRubbedBezierSquare(
   s,
@@ -280,8 +279,8 @@ function drawRubbedBezierSquare(
 }
 
 /**
- * Subdivides a cubic bezier, fading line segments by alpha. 
- * If eraseFactor=0 => no fade (alpha=255).
+ * Subdivides a cubic bezier, fade line segments if eraseFactor>0
+ * If eraseFactor=0 => no fade.
  */
 function drawRubbedBezier(p0, p1, p2, p3, segments, eraseFactor, invertOn) {
   for (let i = 0; i < segments; i++) {
@@ -291,7 +290,6 @@ function drawRubbedBezier(p0, p1, p2, p3, segments, eraseFactor, invertOn) {
     let v2 = getCubicPoint(p0, p1, p2, p3, t2);
 
     if (eraseFactor <= 0.001) {
-      // No negative space => fully opaque
       line(v1.x, v1.y, v2.x, v2.y);
     } else {
       let fadeVal = random(1);
